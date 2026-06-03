@@ -3,7 +3,7 @@ Contributors: hellomindtrain
 Tags: qsm, quiz and survey master, center management, institute management, exam dashboard
 Requires at least: 5.0
 Tested up to: 7.0
-Stable tag: 1.0.7
+Stable tag: 1.0.8
 Requires PHP: 7.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
