@@ -32,5 +32,5 @@ To unlock Advanced Dashboard Analytics, Real-time Search & Filtering, Detailed S
 1. Upload the plugin folder to the `/wp-content/plugins/` directory, or install the plugin directly through the WordPress plugins screen.
 2. Activate the plugin through the 'Plugins' screen in WordPress.
 3. Follow the Setup Guide inside the "MTLS Centerwise" menu on your admin dashboard.
-4. Create a page and use the shortcode `[dashboard]` for students and center owners.
-5. Create a hidden page and use the shortcode `[super_admin_dashboard]` for administrative controls.
+4. Create a page and use the shortcode `[mtls_qsm_dashboard]` for students and center owners.
+5. Create a hidden page and use the shortcode `[mtls_qsm_super_admin_dashboard]` for administrative controls.
