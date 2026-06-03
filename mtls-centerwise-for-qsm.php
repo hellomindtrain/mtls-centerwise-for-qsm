@@ -3,7 +3,7 @@
  * Plugin Name: MTLS Centerwise (For QSM)
  * Plugin URI:  https://mtls.tech/centerwiseproforqsm
  * Description: Premium Lite Version with advanced UI, Super Admin Registration Control, and strict WP Security fixes.
- * Version:     1.0.1
+ * Version:     1.0.2
  * Author:      MTLS
  * License:     GPLv2 or later
  */
