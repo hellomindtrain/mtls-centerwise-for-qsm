@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: MTLS Centerwise (For QSM)
- * Plugin URI:  https://mtls.tech/centerwiseproforqsm
+ * Plugin URI:  https://mtls.tech/qsm-franchise-plugin/
  * Description: Premium Lite Version with advanced UI, Super Admin Registration Control, and strict WP Security fixes.
  * Version:     1.0.9
  * Author:      MTLS
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 // ==========================================
 // 🔴 MASTER PRO UPGRADE LINK 
 // ==========================================
-define('MTLS_QSM_PRO_LINK', 'https://mtls.tech/centerwiseproforqsm'); 
+define('MTLS_QSM_PRO_LINK', 'https://mtls.tech/qsm-franchise-plugin/'); 
 
 // Global variables for showing form messages
 global $mtls_qsm_sa_msg, $mtls_qsm_student_msg, $mtls_login_error;
