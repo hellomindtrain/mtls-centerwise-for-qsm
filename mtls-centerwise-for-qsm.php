@@ -3,7 +3,7 @@
  * Plugin Name: MTLS Centerwise (For QSM)
  * Plugin URI:  https://mtls.tech/qsm-franchise-plugin/
  * Description: Premium Lite Version with advanced UI, Super Admin Registration Control, and strict WP Security fixes.
- * Version:     1.1.2
+ * Version:     1.1.3
  * Author:      MTLS
  * License:     GPLv2 or later
  */
