@@ -3,7 +3,7 @@
  * Plugin Name: MTLS Centerwise (For QSM)
  * Plugin URI:  https://mtls.tech/qsm-franchise-plugin/
  * Description: Premium Lite Version with advanced UI, Super Admin Registration Control, and strict WP Security fixes.
- * Version:     1.1.4
+ * Version:     1.1.5
  * Author:      MTLS
  * License:     GPLv2 or later
  */
@@ -50,10 +50,11 @@ function mtls_qsm_get_manager_custom_center_id($user_id) {
     return $wpdb->get_var( $wpdb->prepare( "SELECT custom_center_id FROM {$wpdb->prefix}mtls_qsm_centers WHERE manager_id = %d LIMIT 1", intval($user_id) ) );
 }
 
-function mtls_qsm_get_dashboard_url() {
+    function mtls_qsm_get_dashboard_url() {
     global $wpdb;
+    // FIx: Added "AND post_type = 'page'" so it ignores your SEO blogs
     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-    $page_id = $wpdb->get_var("SELECT ID FROM {$wpdb->posts} WHERE post_content LIKE '%[mtls_qsm_dashboard]%' AND post_status = 'publish' LIMIT 1");
+    $page_id = $wpdb->get_var("SELECT ID FROM {$wpdb->posts} WHERE post_content LIKE '%[mtls_qsm_dashboard]%' AND post_status = 'publish' AND post_type = 'page' LIMIT 1");
     return $page_id ? get_permalink($page_id) : home_url();
 }
 
@@ -129,7 +130,7 @@ add_action( 'init', 'mtls_qsm_handle_all_forms' );
 function mtls_qsm_handle_all_forms() {
     global $wpdb, $mtls_qsm_sa_msg, $mtls_qsm_student_msg, $mtls_login_error;
 
-    // Login Form Processing
+    // Login Form Processing (With Role-based Redirection)
     if ( isset($_POST['mtls_frontend_login_submit'], $_POST['log_username'], $_POST['log_password']) ) {
         if ( isset($_POST['mtls_login_nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['mtls_login_nonce'])), 'mtls_login_action') ) {
             // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.ValidatedSanitizedInput.MissingUnslash
@@ -141,7 +142,12 @@ function mtls_qsm_handle_all_forms() {
             );
             $user_signon = wp_signon( $creds, false );
             if ( ! is_wp_error($user_signon) ) { 
-                wp_safe_redirect( mtls_qsm_get_dashboard_url() ); 
+                $user = get_user_by('id', $user_signon->ID);
+                if ( in_array( 'administrator', (array) $user->roles ) ) {
+                    wp_safe_redirect( admin_url() );
+                } else {
+                    wp_safe_redirect( mtls_qsm_get_dashboard_url() ); 
+                }
                 exit; 
             } else { 
                 $mtls_login_error = true; 
@@ -273,6 +279,9 @@ function mtls_qsm_handle_all_forms() {
 add_filter( 'login_redirect', 'mtls_qsm_centerwise_default_login_redirect', 10, 3 );
 function mtls_qsm_centerwise_default_login_redirect( $redirect_to, $request, $user ) {
     if ( is_a( $user, 'WP_User' ) && isset( $user->roles ) && is_array( $user->roles ) ) {
+        if ( in_array( 'administrator', $user->roles ) ) {
+            return admin_url();
+        }
         if ( in_array( 'center_owner', $user->roles ) || in_array( 'center_student', $user->roles ) ) {
             return mtls_qsm_get_dashboard_url();
         }
@@ -292,14 +301,20 @@ function mtls_qsm_centerwise_admin_page() {
     echo '<h1 style="color:#1e293b; margin-top:0; font-weight:800; font-size:28px;">MTLS Centerwise Setup Guide</h1>';
     echo '<p style="font-size:16px; color:#475569; margin-bottom:30px;">Welcome to the core management system. To deploy the application interfaces on your website, please embed the respective shortcodes into your WordPress pages.</p>';
     
+    echo '<div style="background:#f8fafc; padding:25px; border-radius:10px; border-left:5px solid #f59e0b; margin-bottom:25px;">';
+    echo '<h3 style="margin-top:0; color:#d97706; font-size:18px;">1. Dedicated Frontend Login (New)</h3>';
+    echo '<p style="color:#475569;">Create a public page titled "Login" and paste this shortcode. It features smart routing: Students & Managers will be sent to their dashboard, while Super Admins will be routed to the WordPress backend.</p>';
+    echo '<code style="background:#fef3c7; color:#b45309; padding:10px 18px; font-size:16px; border-radius:6px; font-weight:bold; display:inline-block;">[mtls_qsm_login]</code>';
+    echo '</div>';
+
     echo '<div style="background:#f8fafc; padding:25px; border-radius:10px; border-left:5px solid #6366f1; margin-bottom:25px;">';
-    echo '<h3 style="margin-top:0; color:#4f46e5; font-size:18px;">1. Client Portal (Student & Center Dashboard)</h3>';
+    echo '<h3 style="margin-top:0; color:#4f46e5; font-size:18px;">2. Client Portal (Student & Center Dashboard)</h3>';
     echo '<p style="color:#475569;">Create a public page titled "Dashboard" and paste the following shortcode. This interface dynamically adapts based on whether a Student or a Center Owner logs in.</p>';
     echo '<code style="background:#e0e7ff; color:#4338ca; padding:10px 18px; font-size:16px; border-radius:6px; font-weight:bold; display:inline-block;">[mtls_qsm_dashboard]</code>';
     echo '</div>';
 
     echo '<div style="background:#f8fafc; padding:25px; border-radius:10px; border-left:5px solid #10b981;">';
-    echo '<h3 style="margin-top:0; color:#059669; font-size:18px;">2. Super Admin Interface & Registration</h3>';
+    echo '<h3 style="margin-top:0; color:#059669; font-size:18px;">3. Super Admin Interface & Registration</h3>';
     echo '<p style="color:#475569;">Create a hidden or password-protected page for Administrator use only. This interface allows you to view all operational data and register new centers.</p>';
     echo '<code style="background:#dcfce7; color:#166534; padding:10px 18px; font-size:16px; border-radius:6px; font-weight:bold; display:inline-block;">[mtls_qsm_super_admin_dashboard]</code>';
     echo '</div>';
@@ -751,4 +766,28 @@ function mtls_qsm_centerwise_sync_backend_delete( $user_id ) {
     
     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     $wpdb->delete("{$wpdb->prefix}mtls_qsm_students", ['user_id' => $user_id]);
+}
+
+// 8. DEDICATED FRONTEND LOGIN SHORTCODE
+add_shortcode( 'mtls_qsm_login', 'mtls_qsm_dedicated_login_shortcode' );
+function mtls_qsm_dedicated_login_shortcode() {
+    mtls_qsm_print_inline_assets();
+    global $mtls_login_error;
+
+    if ( is_user_logged_in() ) {
+        $user = wp_get_current_user();
+        if ( in_array( 'administrator', (array) $user->roles ) ) {
+            return '<div class="mtls-login-box"><p style="text-align:center; color:#1e293b; font-weight:bold; font-size:16px;">You are logged in as Admin.<br><br><a href="'.esc_url(admin_url()).'" class="mtls-btn" style="display:block; text-decoration:none; padding:10px;">Go to WP Dashboard</a></p></div>';
+        } else {
+            return '<div class="mtls-login-box"><p style="text-align:center; color:#1e293b; font-weight:bold; font-size:16px;">You are already logged in.<br><br><a href="'.esc_url(mtls_qsm_get_dashboard_url()).'" class="mtls-btn" style="display:block; text-decoration:none; padding:10px;">Go to My Dashboard</a></p></div>';
+        }
+    }
+
+    ob_start();
+    echo '<div class="mtls-login-box"><h2 style="text-align:center; margin-top:0; color:#1e293b; font-weight:800;">Portal Login</h2><p style="text-align:center; color:#64748b; margin-bottom:25px;">Enter your credentials to access your account.</p>';
+    if ( isset($mtls_login_error) && $mtls_login_error ) echo '<p style="color:#ef4444; text-align:center; background:#fee2e2; padding:10px; border-radius:6px;">Invalid username or password.</p>';
+    echo '<form method="POST">';
+    wp_nonce_field('mtls_login_action', 'mtls_login_nonce');
+    echo '<label style="font-weight:600; color:#475569; font-size:14px; margin-bottom:5px; display:block;">Username / Email</label><input type="text" name="log_username" class="mtls-input" required><label style="font-weight:600; color:#475569; font-size:14px; margin-bottom:5px; display:block;">Password</label><input type="password" name="log_password" class="mtls-input" required><button type="submit" name="mtls_frontend_login_submit" class="mtls-btn">Login Securely</button></form></div>';
+    return ob_get_clean();
 }
