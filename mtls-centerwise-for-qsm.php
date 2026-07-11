@@ -3,7 +3,7 @@
  * Plugin Name: MTLS Centerwise (For QSM)
  * Plugin URI:  https://mtls.tech/qsm-franchise-plugin/
  * Description: Premium Lite Version with advanced UI, Super Admin Registration Control, and strict WP Security fixes.
- * Version:     1.1.5
+ * Version:     1.1.6
  * Author:      MTLS
  * License:     GPLv2 or later
  */
@@ -50,9 +50,8 @@ function mtls_qsm_get_manager_custom_center_id($user_id) {
     return $wpdb->get_var( $wpdb->prepare( "SELECT custom_center_id FROM {$wpdb->prefix}mtls_qsm_centers WHERE manager_id = %d LIMIT 1", intval($user_id) ) );
 }
 
-    function mtls_qsm_get_dashboard_url() {
+function mtls_qsm_get_dashboard_url() {
     global $wpdb;
-    // FIx: Added "AND post_type = 'page'" so it ignores your SEO blogs
     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     $page_id = $wpdb->get_var("SELECT ID FROM {$wpdb->posts} WHERE post_content LIKE '%[mtls_qsm_dashboard]%' AND post_status = 'publish' AND post_type = 'page' LIMIT 1");
     return $page_id ? get_permalink($page_id) : home_url();
@@ -326,11 +325,13 @@ function mtls_qsm_centerwise_admin_page() {
 add_shortcode('mtls_qsm_super_admin_dashboard', 'mtls_qsm_render_super_admin_dashboard');
 
 function mtls_qsm_render_super_admin_dashboard() {
+    ob_start();
     // FORCE INJECT ASSETS
     mtls_qsm_print_inline_assets();
 
     if (!is_user_logged_in() || !current_user_can('manage_options')) {
-        return '<p style="text-align:center; padding:30px; background:#fee2e2; color:#991b1b; border-radius:10px;">Security Alert: Only Super Admins can access this interface.</p>';
+        echo '<p style="text-align:center; padding:30px; background:#fee2e2; color:#991b1b; border-radius:10px;">Security Alert: Only Super Admins can access this interface.</p>';
+        return ob_get_clean();
     }
 
     global $wpdb, $mtls_qsm_sa_msg;
@@ -343,7 +344,6 @@ function mtls_qsm_render_super_admin_dashboard() {
     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
     $total_students = (int) $wpdb->get_var("SELECT COUNT(s.id) FROM {$wpdb->prefix}mtls_qsm_students s INNER JOIN {$wpdb->prefix}mtls_qsm_centers c ON s.custom_center_id = c.custom_center_id");
     
-    ob_start();
     ?>
     <div class="sa-box">
         <div class="sa-header">
@@ -454,7 +454,8 @@ function mtls_qsm_render_super_admin_dashboard() {
                         if($c_results) {
                             echo '<table class="sa-table"><thead><tr><th>Date</th><th>Student Name</th><th>Quiz</th><th>Score</th></tr></thead><tbody>';
                             foreach($c_results as $res) {
-                                $quiz_name = get_the_title($res->quiz_id);
+                                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+                                $quiz_name = $wpdb->get_var($wpdb->prepare("SELECT quiz_name FROM {$wpdb->prefix}mlw_quizzes WHERE quiz_id = %d", $res->quiz_id));
                                 if (empty($quiz_name) && !empty($res->quiz_name)) { $quiz_name = $res->quiz_name; }
                                 if (empty($quiz_name)) { $quiz_name = "Quiz #" . $res->quiz_id; }
 
@@ -484,11 +485,11 @@ function mtls_qsm_render_super_admin_dashboard() {
 add_shortcode( 'mtls_qsm_dashboard', 'mtls_qsm_frontend_portal_shortcode' );
 
 function mtls_qsm_frontend_portal_shortcode() {
+    ob_start();
     // FORCE INJECT ASSETS
     mtls_qsm_print_inline_assets();
 
     global $wpdb, $mtls_login_error, $mtls_qsm_student_msg;
-    ob_start();
     $current_page_url = mtls_qsm_get_dashboard_url();
 
     // LOGIN FORM
@@ -507,10 +508,22 @@ function mtls_qsm_frontend_portal_shortcode() {
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended
     $active_tab     = isset($_GET['tab']) ? sanitize_text_field(wp_unslash($_GET['tab'])) : 'profile';
 
+    // Fetch exact name for Welcome Header
+    $welcome_name = $current_user->display_name ?: $current_user->user_login;
+    if ( $is_student_logged ) {
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $db_stud_name = $wpdb->get_var($wpdb->prepare("SELECT student_name FROM {$wpdb->prefix}mtls_qsm_students WHERE user_id = %d", $current_user->ID));
+        if ( !empty($db_stud_name) ) { $welcome_name = $db_stud_name; }
+    } elseif ( in_array('center_owner', (array)$current_user->roles) ) {
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+        $db_cent_name = $wpdb->get_var($wpdb->prepare("SELECT center_name FROM {$wpdb->prefix}mtls_qsm_centers WHERE manager_id = %d", $current_user->ID));
+        if ( !empty($db_cent_name) ) { $welcome_name = $db_cent_name; }
+    }
+
     ?>
     <div class="mtls-portal-box">
         <div class="mtls-portal-header">
-            <h2>Welcome, <?php echo esc_html($current_user->display_name ?: $current_user->user_login); ?> ✨</h2>
+            <h2>Welcome, <?php echo esc_html($welcome_name); ?> ✨</h2>
         </div>
 
         <?php 
@@ -564,7 +577,8 @@ function mtls_qsm_frontend_portal_shortcode() {
                               </thead><tbody>';
                         
                         foreach($results as $result) {
-                            $quiz_name = get_the_title($result->quiz_id);
+                            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+                            $quiz_name = $wpdb->get_var($wpdb->prepare("SELECT quiz_name FROM {$wpdb->prefix}mlw_quizzes WHERE quiz_id = %d", $result->quiz_id));
                             if (empty($quiz_name) && !empty($result->quiz_name)) { $quiz_name = $result->quiz_name; }
                             if (empty($quiz_name)) { $quiz_name = "Quiz #" . (isset($result->quiz_id) ? $result->quiz_id : 'N/A'); }
 
@@ -719,7 +733,8 @@ function mtls_qsm_frontend_portal_shortcode() {
                               </thead><tbody>';
                               
                         foreach($qsm_results_data as $result) {
-                            $quiz_name = get_the_title($result->quiz_id);
+                            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+                            $quiz_name = $wpdb->get_var($wpdb->prepare("SELECT quiz_name FROM {$wpdb->prefix}mlw_quizzes WHERE quiz_id = %d", $result->quiz_id));
                             if (empty($quiz_name) && !empty($result->quiz_name)) { $quiz_name = $result->quiz_name; }
                             if (empty($quiz_name)) { $quiz_name = "Quiz #" . (isset($result->quiz_id) ? $result->quiz_id : 'N/A'); }
                             
@@ -771,23 +786,36 @@ function mtls_qsm_centerwise_sync_backend_delete( $user_id ) {
 // 8. DEDICATED FRONTEND LOGIN SHORTCODE
 add_shortcode( 'mtls_qsm_login', 'mtls_qsm_dedicated_login_shortcode' );
 function mtls_qsm_dedicated_login_shortcode() {
+    ob_start();
     mtls_qsm_print_inline_assets();
     global $mtls_login_error;
 
     if ( is_user_logged_in() ) {
         $user = wp_get_current_user();
         if ( in_array( 'administrator', (array) $user->roles ) ) {
-            return '<div class="mtls-login-box"><p style="text-align:center; color:#1e293b; font-weight:bold; font-size:16px;">You are logged in as Admin.<br><br><a href="'.esc_url(admin_url()).'" class="mtls-btn" style="display:block; text-decoration:none; padding:10px;">Go to WP Dashboard</a></p></div>';
+            echo '<div class="mtls-login-box"><p style="text-align:center; color:#1e293b; font-weight:bold; font-size:16px;">You are logged in as Admin.<br><br><a href="'.esc_url(admin_url()).'" class="mtls-btn" style="display:block; text-decoration:none; padding:10px;">Go to WP Dashboard</a></p></div>';
+            return ob_get_clean();
         } else {
-            return '<div class="mtls-login-box"><p style="text-align:center; color:#1e293b; font-weight:bold; font-size:16px;">You are already logged in.<br><br><a href="'.esc_url(mtls_qsm_get_dashboard_url()).'" class="mtls-btn" style="display:block; text-decoration:none; padding:10px;">Go to My Dashboard</a></p></div>';
+            echo '<div class="mtls-login-box"><p style="text-align:center; color:#1e293b; font-weight:bold; font-size:16px;">You are already logged in.<br><br><a href="'.esc_url(mtls_qsm_get_dashboard_url()).'" class="mtls-btn" style="display:block; text-decoration:none; padding:10px;">Go to My Dashboard</a></p></div>';
+            return ob_get_clean();
         }
     }
 
-    ob_start();
     echo '<div class="mtls-login-box"><h2 style="text-align:center; margin-top:0; color:#1e293b; font-weight:800;">Portal Login</h2><p style="text-align:center; color:#64748b; margin-bottom:25px;">Enter your credentials to access your account.</p>';
     if ( isset($mtls_login_error) && $mtls_login_error ) echo '<p style="color:#ef4444; text-align:center; background:#fee2e2; padding:10px; border-radius:6px;">Invalid username or password.</p>';
     echo '<form method="POST">';
     wp_nonce_field('mtls_login_action', 'mtls_login_nonce');
     echo '<label style="font-weight:600; color:#475569; font-size:14px; margin-bottom:5px; display:block;">Username / Email</label><input type="text" name="log_username" class="mtls-input" required><label style="font-weight:600; color:#475569; font-size:14px; margin-bottom:5px; display:block;">Password</label><input type="password" name="log_password" class="mtls-input" required><button type="submit" name="mtls_frontend_login_submit" class="mtls-btn">Login Securely</button></form></div>';
     return ob_get_clean();
+}
+
+// 9. HIDE ADMIN BAR FOR STUDENTS AND CENTER OWNERS
+add_action('after_setup_theme', 'mtls_qsm_hide_admin_bar');
+function mtls_qsm_hide_admin_bar() {
+    if ( is_user_logged_in() ) {
+        $user = wp_get_current_user();
+        if ( in_array( 'center_owner', (array) $user->roles ) || in_array( 'center_student', (array) $user->roles ) ) {
+            show_admin_bar( false );
+        }
+    }
 }
