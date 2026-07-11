@@ -3,7 +3,7 @@
  * Plugin Name: MTLS Centerwise (For QSM)
  * Plugin URI:  https://mtls.tech/qsm-franchise-plugin/
  * Description: Premium Lite Version with advanced UI, Super Admin Registration Control, and strict WP Security fixes.
- * Version:     1.1.6
+ * Version:     1.1.7
  * Author:      MTLS
  * License:     GPLv2 or later
  */
@@ -20,6 +20,20 @@ global $mtls_qsm_sa_msg, $mtls_qsm_student_msg, $mtls_login_error;
 $mtls_qsm_sa_msg = '';
 $mtls_qsm_student_msg = '';
 $mtls_login_error = false;
+
+// ==========================================
+// FIX: ENSURE ROLES EXIST ON EVERY LOAD
+// ==========================================
+add_action('init', 'mtls_qsm_ensure_roles_exist');
+function mtls_qsm_ensure_roles_exist() {
+    if ( ! wp_roles() ) { return; }
+    if ( ! wp_roles()->is_role( 'center_owner' ) ) {
+        add_role( 'center_owner', 'Center Owner', array( 'read' => true ) );
+    }
+    if ( ! wp_roles()->is_role( 'center_student' ) ) {
+        add_role( 'center_student', 'Center Student', array( 'read' => true ) );
+    }
+}
 
 // 1. DATABASE TABLES SETUP
 register_activation_hook( __FILE__, 'mtls_qsm_centerwise_activate_plugin' );
@@ -422,7 +436,7 @@ function mtls_qsm_render_super_admin_dashboard() {
                         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
                         $c_students = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}mtls_qsm_students WHERE custom_center_id = %s ORDER BY id DESC", $c->custom_center_id));
                         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                        $c_results = $wpdb->get_results($wpdb->prepare("SELECT q.*, s.student_name FROM {$wpdb->prefix}mlw_results q JOIN {$wpdb->prefix}mtls_qsm_students s ON q.user = s.user_id WHERE s.custom_center_id = %s ORDER BY q.result_id DESC LIMIT 50", $c->custom_center_id));
+                        $c_results = $wpdb->get_results($wpdb->prepare("SELECT q.*, s.student_name FROM {$wpdb->prefix}mlw_results q JOIN {$wpdb->prefix}mtls_qsm_students s ON q.user = s.user_id WHERE s.custom_center_id = %s AND q.deleted = 0 ORDER BY q.result_id DESC LIMIT 50", $c->custom_center_id));
 
                         echo '<li class="sa-center-item">';
                         echo '<div class="sa-center-head" onclick="mtlsQsmToggleCenterData(\''.esc_attr($c->custom_center_id).'\')">';
@@ -564,7 +578,7 @@ function mtls_qsm_frontend_portal_shortcode() {
                     <h3 style="margin-top:0; color:#1e293b; font-size:22px;">My Exam Results</h3>
                     <?php 
                     // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                    $results = $wpdb->get_results( $wpdb->prepare("SELECT * FROM {$wpdb->prefix}mlw_results WHERE user=%d ORDER BY result_id DESC", $current_user->ID) );
+                    $results = $wpdb->get_results( $wpdb->prepare("SELECT * FROM {$wpdb->prefix}mlw_results WHERE user=%d AND deleted = 0 ORDER BY result_id DESC", $current_user->ID) );
                     
                     if ( $results ) {
                         echo '<div style="overflow-x:auto;"><table id="mtlsStudentTable" class="mtls-data-table">
@@ -715,10 +729,10 @@ function mtls_qsm_frontend_portal_shortcode() {
                     <?php
                     if (current_user_can('manage_options')) {
                         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
-                        $qsm_results_data = $wpdb->get_results("SELECT q.*, s.student_name, s.custom_center_id FROM {$wpdb->prefix}mlw_results q JOIN {$wpdb->prefix}mtls_qsm_students s ON q.user = s.user_id ORDER BY q.result_id DESC");
+                        $qsm_results_data = $wpdb->get_results("SELECT q.*, s.student_name, s.custom_center_id FROM {$wpdb->prefix}mlw_results q JOIN {$wpdb->prefix}mtls_qsm_students s ON q.user = s.user_id WHERE q.deleted = 0 ORDER BY q.result_id DESC");
                     } else {
                         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-                        $qsm_results_data = $wpdb->get_results($wpdb->prepare("SELECT q.*, s.student_name, s.custom_center_id FROM {$wpdb->prefix}mlw_results q JOIN {$wpdb->prefix}mtls_qsm_students s ON q.user = s.user_id WHERE s.custom_center_id = %s ORDER BY q.result_id DESC", $assigned_custom_id));
+                        $qsm_results_data = $wpdb->get_results($wpdb->prepare("SELECT q.*, s.student_name, s.custom_center_id FROM {$wpdb->prefix}mlw_results q JOIN {$wpdb->prefix}mtls_qsm_students s ON q.user = s.user_id WHERE s.custom_center_id = %s AND q.deleted = 0 ORDER BY q.result_id DESC", $assigned_custom_id));
                     }
                     
                     if ( ! empty($qsm_results_data) ) {
